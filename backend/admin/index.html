@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Admin CMS - Login & Blog</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f4f7f6;
+            display: flex;
+            justify-content: center;
+            padding: 40px;
+        }
+
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 500px;
+        }
+
+        h2 {
+            text-align: center;
+            color: #333;
+        }
+
+        input,
+        textarea {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            box-sizing: border-box;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        button:hover {
+            background: #0056b3;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        /* CSS ARTIKEL */
+        .post {
+            background: #fafafa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            border: 1px solid #eee;
+        }
+
+        .post b {
+            font-size: 18px;
+            display: block;
+            margin-bottom: 8px;
+        }
+
+        /* Gambar diperbesar seukuran kontainer */
+        .post img {
+            width: 100%;
+            height: auto;
+            border-radius: 8px;
+            margin: 10px 0;
+            display: block;
+        }
+
+        .btn-delete {
+            background: #ff4d4d;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+
+        .btn-delete:hover {
+            background: #cc0000;
+        }
+
+        .logout-btn {
+            background: #ff0000;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <!-- BAGIAN LOGIN -->
+        <div id="loginForm">
+            <h2>🔐 Login Admin</h2>
+            <input type="text" id="userIn" placeholder="Username">
+            <input type="password" id="passIn" placeholder="Password">
+            <button onclick="handleLogin()">Masuk</button>
+            <p style="text-align: center; font-size: 13px;">Belum ada akun? <a href="#" onclick="toggleAuth()">Daftar
+                    Akun Baru</a></p>
+        </div>
+
+        <!-- BAGIAN REGISTER -->
+        <div id="regForm" class="hidden">
+            <h2>📝 Daftar Admin</h2>
+            <input type="text" id="userUp" placeholder="Buat Username">
+            <input type="password" id="passUp" placeholder="Buat Password">
+            <button style="background: #28a745;" onclick="handleRegister()">Buat Akun</button>
+            <p style="text-align: center; font-size: 13px;"><a href="#" onclick="toggleAuth()">Kembali ke Login</a></p>
+        </div>
+
+        <!-- DASHBOARD -->
+        <div id="adminPanel" class="hidden">
+            <h2>📝 Tambah Artikel Baru</h2>
+            <form id="blogForm">
+                <input type="text" id="title" placeholder="Judul Artikel" required>
+                <textarea id="content" placeholder="Isi Artikel" rows="4" required></textarea>
+                <input type="file" id="image" accept="image/*" required>
+                <button type="submit">Upload Sekarang</button>
+            </form>
+            <button class="logout-btn" onclick="logout()">Keluar Aplikasi</button>
+            <hr style="margin: 20px 0;">
+            <div id="postList"></div>
+        </div>
+    </div>
+
+    <script>
+        const API = "http://localhost:5000";
+
+        const getAuthHeader = () => ({
+            "Authorization": `Bearer ${localStorage.getItem("blog_token")}`
+        });
+
+        // 1. FUNGSI LOGIN
+        // Tambahkan try-catch agar kamu bisa melihat error di alert/console
+        async function handleLogin() {
+            const user = document.getElementById("userIn").value;
+            const pass = document.getElementById("passIn").value;
+
+            try {
+                const res = await fetch(`${API}/auth/login`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ username: user, password: pass })
+                });
+
+                if (!res.ok) throw new Error("Server merespon dengan error");
+
+                const data = await res.json();
+                if (data.token) {
+                    localStorage.setItem("blog_token", data.token);
+                    checkAuth();
+                } else {
+                    alert("Login Gagal: Username/Password salah");
+                }
+            } catch (err) {
+                console.error(err);
+                alert("Terjadi kesalahan koneksi atau server sedang sibuk.");
+            }
+        }
+
+        // 2. FUNGSI DAFTAR
+        async function handleRegister() {
+            // Ambil elemen DOM terlebih dahulu
+            const user = document.getElementById("userUp").value;
+            const pass = document.getElementById("passUp").value;
+
+            try {
+                const res = await fetch(`${API}/auth/register`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ username: user, password: pass }) // Gunakan variabel yang benar
+                });
+
+                if (res.ok) {
+                    alert("Berhasil daftar!");
+                    toggleAuth();
+                } else {
+                    alert("Gagal mendaftar. Silakan coba lagi.");
+                }
+            } catch (err) {
+                console.error(err);
+                alert("Terjadi kesalahan koneksi ke server backend.");
+            }
+        }
+
+        // 3. LOAD DATA (Hanya satu fungsi, sudah termasuk tombol hapus)
+        async function loadPosts() {
+            const res = await fetch(`${API}/posts`);
+            const data = await res.json();
+            const list = document.getElementById("postList");
+            list.innerHTML = "<h3>Daftar Artikel:</h3>";
+            data.forEach(p => {
+                list.innerHTML += `
+                <div class="post">
+                    <b>${p.title}</b>
+                    <p>${p.content}</p>
+                    <img src="${API}/uploads/${p.image}">
+                    <button class="btn-delete" onclick="deletePost('${p._id}')">Hapus Artikel</button>
+                </div>`;
+            });
+        }
+
+        // 4. FUNGSI DELETE
+        async function deletePost(id) {
+            if (!confirm("Yakin ingin menghapus?")) return;
+            const res = await fetch(`${API}/posts/${id}`, {
+                method: "DELETE",
+                headers: getAuthHeader()
+            });
+            if (res.ok) loadPosts();
+        }
+
+        // 5. FUNGSI UPLOAD
+        document.getElementById("blogForm").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const formData = new FormData();
+            formData.append("title", document.getElementById("title").value);
+            formData.append("content", document.getElementById("content").value);
+            formData.append("image", document.getElementById("image").files[0]);
+
+            const res = await fetch(`${API}/posts`, {
+                method: "POST",
+                headers: getAuthHeader(),
+                body: formData
+            });
+
+            if (res.ok) {
+                alert("Berhasil tayang!");
+                document.getElementById("blogForm").reset();
+                loadPosts();
+            }
+        });
+
+        function checkAuth() {
+            if (localStorage.getItem("blog_token")) {
+                document.getElementById("loginForm").classList.add("hidden");
+                document.getElementById("regForm").classList.add("hidden");
+                document.getElementById("adminPanel").classList.remove("hidden");
+                loadPosts();
+            }
+        }
+
+        function toggleAuth() {
+            loginForm.classList.toggle("hidden");
+            regForm.classList.toggle("hidden");
+        }
+
+        function logout() {
+            localStorage.removeItem("blog_token");
+            location.reload();
+        }
+
+        checkAuth();
+    </script>
+</body>
+
+</html>
