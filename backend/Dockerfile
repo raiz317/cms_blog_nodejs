@@ -1,7 +1,9 @@
-FROM registry.access.redhat.com/ubi8/nodejs-18:latest
+FROM ://redhat.com
 WORKDIR /app
-COPY package*.json ./
+# Diarahkan ke folder backend tempat package.json berada
+COPY backend/package*.json ./
 RUN npm install
-COPY . .
+# Diarahkan ke folder backend untuk menyalin sisa kode program
+COPY backend/ .
 EXPOSE 5000
-CMD ["node", "app.js"]
+CMD ["node", "index.js"]
