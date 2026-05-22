@@ -135,20 +135,27 @@
     </div>
 
     <script>
-        const API = "https://stunning-space-memory-g46xwr56r7gpcvj5q-5000.app.github.dev";
+        // Gunakan konstruktor URL bawaan JavaScript untuk membersihkan penumpukan tanda '/' otomatis
+        const API_BASE = "https://stunning-space-memory-g46xwr56r7gpcvj5q-5000.app.github.dev";
+        
+        const getUrl = (endpoint) => {
+            // Menghapus tanda "/" di akhir domain jika ada, lalu menggabungkannya dengan benar
+            const cleanBase = API_BASE.replace(/\/+$/, "");
+            const cleanEndpoint = endpoint.replace(/^\/+/, "");
+            return `${cleanBase}/${cleanEndpoint}`;
+        };
 
         const getAuthHeader = () => ({
             "Authorization": `Bearer ${localStorage.getItem("blog_token")}`
         });
 
         // 1. FUNGSI LOGIN
-        // Tambahkan try-catch agar kamu bisa melihat error di alert/console
         async function handleLogin() {
             const user = document.getElementById("userIn").value;
             const pass = document.getElementById("passIn").value;
 
             try {
-                const res = await fetch(`${API}/auth/login`, {
+                const res = await fetch(getUrl("auth/login"), {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ username: user, password: pass })
@@ -171,22 +178,22 @@
 
         // 2. FUNGSI DAFTAR
         async function handleRegister() {
-            // Ambil elemen DOM terlebih dahulu
             const user = document.getElementById("userUp").value;
             const pass = document.getElementById("passUp").value;
 
             try {
-                const res = await fetch(`${API}/auth/register`, {
+                const res = await fetch(getUrl("auth/register"), {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ username: user, password: pass }) // Gunakan variabel yang benar
+                    body: JSON.stringify({ username: user, password: pass })
                 });
 
                 if (res.ok) {
                     alert("Berhasil daftar!");
                     toggleAuth();
                 } else {
-                    alert("Gagal mendaftar. Silakan coba lagi.");
+                    const errorData = await res.json().catch(() => ({}));
+                    alert(errorData.message || "Gagal mendaftar. Silakan coba lagi.");
                 }
             } catch (err) {
                 console.error(err);
@@ -194,27 +201,31 @@
             }
         }
 
-        // 3. LOAD DATA (Hanya satu fungsi, sudah termasuk tombol hapus)
+        // 3. LOAD DATA
         async function loadPosts() {
-            const res = await fetch(`${API}/posts`);
-            const data = await res.json();
-            const list = document.getElementById("postList");
-            list.innerHTML = "<h3>Daftar Artikel:</h3>";
-            data.forEach(p => {
-                list.innerHTML += `
-                <div class="post">
-                    <b>${p.title}</b>
-                    <p>${p.content}</p>
-                    <img src="${API}/uploads/${p.image}">
-                    <button class="btn-delete" onclick="deletePost('${p._id}')">Hapus Artikel</button>
-                </div>`;
-            });
+            try {
+                const res = await fetch(getUrl("posts"));
+                const data = await res.json();
+                const list = document.getElementById("postList");
+                list.innerHTML = "<h3>Daftar Artikel:</h3>";
+                data.forEach(p => {
+                    list.innerHTML += `
+                    <div class="post">
+                        <b>${p.title}</b>
+                        <p>${p.content}</p>
+                        <img src="${getUrl("uploads/" + p.image)}">
+                        <button class="btn-delete" onclick="deletePost('${p._id}')">Hapus Artikel</button>
+                    </div>`;
+                });
+            } catch (err) {
+                console.error("Gagal memuat post:", err);
+            }
         }
 
         // 4. FUNGSI DELETE
         async function deletePost(id) {
             if (!confirm("Yakin ingin menghapus?")) return;
-            const res = await fetch(`${API}/posts/${id}`, {
+            const res = await fetch(getUrl(`posts/${id}`), {
                 method: "DELETE",
                 headers: getAuthHeader()
             });
@@ -229,7 +240,7 @@
             formData.append("content", document.getElementById("content").value);
             formData.append("image", document.getElementById("image").files[0]);
 
-            const res = await fetch(`${API}/posts`, {
+            const res = await fetch(getUrl("posts"), {
                 method: "POST",
                 headers: getAuthHeader(),
                 body: formData
@@ -252,8 +263,8 @@
         }
 
         function toggleAuth() {
-            loginForm.classList.toggle("hidden");
-            regForm.classList.toggle("hidden");
+            document.getElementById("loginForm").classList.toggle("hidden");
+            document.getElementById("regForm").classList.toggle("hidden");
         }
 
         function logout() {
